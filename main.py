@@ -1,10 +1,15 @@
+import glob
 import os
+import random
+import re
 import subprocess
 import time
-from typing import Literal
+from pathlib import Path
+from typing import Literal, Tuple
 
 import numpy as np
 from moviepy.editor import ImageClip, AudioFileClip, CompositeVideoClip, TextClip
+from scipy.io.wavfile import read, write
 from tqdm import tqdm
 
 
@@ -16,21 +21,20 @@ def convert_mp3_to_wav(input_path: str, output_path: str):
         input_path (str): Path to the input MP3 file.
         output_path (str): Path to the output WAV file.
     """
-    command = ['ffmpeg', '-y', '-i', input_path, output_path]
+    command = ['ffmpeg', '-hide_banner', '-y', '-i', input_path, output_path]
     subprocess.run(command, check=True)
 
 
 def detect_silence(path, time):
     '''
-    This function is a python wrapper to run the ffmpeg command in python and extranct the desired output
+    This function is a python wrapper to run the ffmpeg command in python and extract the desired output
 
     path= Audio file path
     time = silence time threshold
 
     returns = list of tuples with start and end point of silences
-
     '''
-    command = "ffmpeg -i " + path + " -af silencedetect=n=-23dB:d=" + str(time) + " -f null -"
+    command = "ffmpeg -i " + path + " -af silencedetect=n=-30dB:d=" + str(time) + " -f null -"
     out = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     stdout, stderr = out.communicate()
     s = stdout.decode("utf-8")
@@ -61,9 +65,6 @@ def detect_silence(path, time):
         end = end[:min_len]
 
     return list(zip(start, end))
-
-
-from scipy.io.wavfile import read, write
 
 
 def remove_silence(path, sil, keep_sil, out_path):
@@ -105,22 +106,20 @@ def remove_silence(path, sil, keep_sil, out_path):
     return non_sil
 
 
-def clean_audiotrack(audio_path: str, duration: int) -> AudioFileClip:
+def clean_audiotrack(audio_path: str, duration: int) -> Tuple[list[str], AudioFileClip]:
     filename = audio_path[:-4]
     output_path = f"{filename}_fixed.mp3"
     wav_path = filename + '.wav'
     convert_mp3_to_wav(audio_path, wav_path)
     remove_silence(wav_path, detect_silence(wav_path, 0.5), 0.5, output_path)
     result = AudioFileClip(output_path)
-    # some cleanup
-    # os.remove(output_path)
-    os.remove(wav_path)
+    files_for_remove = [output_path, wav_path]
     if not duration:
-        return result
-    return result.set_duration(duration)
+        return files_for_remove, result
+    return files_for_remove, result.set_duration(duration)
 
 
-def add_image_background(image_path: str, duration: int, video_type: Literal['plain', 'short']) -> ImageClip:
+def add_image_background(video_type: Literal['plain', 'short'], image_path: str, duration: int) -> ImageClip:
     # Load the static image
     image_clip = ImageClip(image_path).set_duration(duration)
 
@@ -162,35 +161,85 @@ def export_video(image_clip: ImageClip, audio_clip: AudioFileClip, text_clip: Te
     video_with_caption.write_videofile(output_path, codec='libx264', audio_codec='aac', fps=24, threads=4)
 
 
-def create_video_with_image(video_type: Literal['plain', 'short'],
-                            image_path: str,
+def remove_files(files_for_remove: list[str]):
+    for file_path in files_for_remove:
+        os.remove(file_path)
+
+
+def create_video_with_image(image_path: str,
                             audio_path: str,
                             output_path: str,
                             text: str,
                             duration: int = None):
+    """
+    Создать видео на основе аудиодорожки и изображения
+    :param image_path: путь до изображения на заднем плане
+    :param audio_path: путь до аудиодорожки
+    :param output_path: путь для получившегося видео
+    :param text: Надпись на видео
+    :param duration: длительность получившегося видео, если None, то длительность видео равна длине отредактированной аудиодорожки
+    :return: ничего не возвращает
+    """
     # Use the font path from the environment variable
-    font_path = os.getenv('FONT_PATH', './fonts/OpenSans-Bold.ttf')
+    font_path = './fonts/OpenSans-Bold.ttf'
 
-    audio_clip = clean_audiotrack(audio_path, duration)
-    image_clip = add_image_background(image_path, audio_clip.duration, video_type)
+    files_for_remove, audio_clip = clean_audiotrack(audio_path, duration)
+    if audio_clip.duration > 60:
+        video_type = 'plain'
+    else:
+        video_type = 'short'
+    image_clip = add_image_background(video_type, image_path, audio_clip.duration)
     text_clip = add_text_on_background(text, audio_clip.duration, font_path)
-    # todo remove _fixed audiotrack
     export_video(image_clip, audio_clip, text_clip, output_path)
+    remove_files(files_for_remove)
 
 
-# Example usage:
-image_path = 'photo.jpg'
-audio_path = 'sample_with_pauses.mp3'
-output_path = 'ouput.mp4'
-video_cation_text = 'Min bir hikmətli söz'
+def fix_filenames(folder):
+    """
+    Fixes filenames in the specified folder by replacing spaces with underscores
+    and removing special characters except dots in file extensions.
+    """
+    if not folder.endswith('/'):
+        folder += '/'
 
-start_time = time.time()
-create_video_with_image(video_type='short',
-                        image_path=image_path,
-                        audio_path=audio_path,
-                        output_path=output_path,
-                        text=video_cation_text,
-                        duration=None)
-end_time = time.time()
-elapsed_time = end_time - start_time
-print(f'Время исполнения: {elapsed_time:.2f} секунд')
+    for filename in os.listdir(folder):
+        name, extension = os.path.splitext(filename)
+        fixed_name = name.replace(' ', '_')
+        fixed_name = re.sub(r'[^\w\s]', '', fixed_name)
+        fixed_filename = fixed_name + extension
+        os.rename(os.path.join(folder, filename), os.path.join(folder, fixed_filename))
+
+
+def create_videos_with_image(source_mp3_folder_path: Path,
+                             source_images_path: Path,
+                             output_video_folder_path: Path,
+                             video_caption_text: str):
+    fix_filenames(str(source_mp3_folder_path))
+    mp3_paths = glob.glob(os.path.join(source_mp3_folder_path, '*.mp3'))
+    background_image_paths = glob.glob(os.path.join(source_images_path, '*.jpg'))
+    for mp3_path in mp3_paths:
+        random_image_path = random.choice(background_image_paths)
+        create_video_with_image(image_path=str(random_image_path),
+                                audio_path=str(mp3_path),
+                                output_path=f'{output_video_folder_path}/{os.path.basename(mp3_path)[:-4]}.mp4',
+                                text=video_caption_text)
+
+
+# parallelise render
+# separaterd shorts image paths and plain videos paths
+# add ui
+# refactor (create another file file_utils) and maybe file for ffmpeg wrapper
+if __name__ == '__main__':
+    image_path = 'photo.jpg'
+    audio_path = 'sample_with_pauses.mp3'
+    output_path = 'ouput.mp4'
+    video_caption_text = 'Min bir hikmətli söz'
+
+    start_time = time.time()
+    create_videos_with_image(Path('./source'),
+                             Path(r'E:\ПапаРелигия\assets\photo'),
+                             Path('./out'),
+                             video_caption_text)
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+    print(f'Время исполнения: {elapsed_time:.2f} секунд')
