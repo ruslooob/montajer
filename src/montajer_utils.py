@@ -1,6 +1,7 @@
 import glob
 import os
 import random
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Tuple, Literal
 
@@ -10,18 +11,22 @@ from .ffmpeg_utils import convert_audiofile, detect_silence, remove_silence
 from .file_utils import fix_filenames, remove_files
 
 
-def clean_audiotrack(audio_path: Path):
+def clean_audiotrack(audio_path: Path, output_path: Path):
     """
-    Removes all silence from audiotrack and deletes all temporary files
-    :param audio_path: path to audiofile
-    """
+        Removes all silence from audiotrack and deletes all temporary files
+        :param audio_path: path to audiofile
+        :param output_path path o output audiofile
+        """
     try:
         files_for_remove, audiotrack = _clean_audiotrack(audio_path)
         print(f"files for remove: {files_for_remove}")
-        output_path = f"{str(audio_path)[:-4]}_fixed.mp3"
         audiotrack.write_audiofile(output_path)
     finally:
         remove_files([file for file in files_for_remove if not str(file).endswith(".mp3")])
+
+
+def clean_audiotrack(audio_path: Path):
+    clean_audiotrack(audio_path, Path(f"{str(audio_path)[:-4]}_fixed.mp3"))
 
 
 def _clean_audiotrack(audio_path: Path, duration: int = None) -> Tuple[list[Path], AudioFileClip]:
@@ -115,22 +120,26 @@ def create_video_with_image(image_path: str,
 def create_videos_with_image(source_audio_folder_path: Path,
                              source_images_folder_path: Path,
                              output_video_folder_path: Path,
-                             video_caption_text: str):
-    """
-    Creates videos from given audio folder path
-    :param source_audio_folder_path:
-    :param source_images_folder_path:
-    :param output_video_folder_path:
-    :param video_caption_text:
-    :return:
-    """
+                             video_caption_text: str,
+                             threads=1):
     fix_filenames(source_audio_folder_path)
     audio_paths = glob.glob(os.path.join(source_audio_folder_path, '*.mp3'))
+    print(f"audio paths: {audio_paths}")
     background_image_paths = glob.glob(os.path.join(source_images_folder_path, '*.jpg'))
 
-    for audio_path in audio_paths:
+    def create_video_helper(audio_path: str):
         random_image_path = random.choice(background_image_paths)
-        create_video_with_image(image_path=random_image_path,
-                                audio_path=Path(audio_path),
-                                output_path=Path(f'{output_video_folder_path}/{os.path.basename(audio_path)[:-4]}.mp4'),
-                                text=video_caption_text)
+        output_path = Path(f'{output_video_folder_path}/{os.path.basename(audio_path)[:-4]}.mp4')
+        create_video_with_image(
+            image_path=random_image_path,
+            audio_path=Path(audio_path),
+            output_path=output_path,
+            text=video_caption_text
+        )
+
+    if threads == -1:
+        threads = os.cpu_count()
+    with ThreadPoolExecutor(max_workers=threads) as executor:
+        futures = [executor.submit(create_video_helper, audio_path) for audio_path in audio_paths]
+        for future in futures:
+            future.result()

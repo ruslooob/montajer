@@ -65,6 +65,7 @@ def detect_silence(path: Path, time):
     return list(zip(start, end))
 
 
+# todo разобраться, почему зависает на секунд 10 во время многопоточного выполнения
 def remove_silence(path: Path, sil, keep_sil, out_path: Path):
     """
     Removes silence from the audio.
