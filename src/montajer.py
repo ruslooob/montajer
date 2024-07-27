@@ -1,17 +1,17 @@
 import glob
 import os
 import random
-import time
 from pathlib import Path
-from typing import Literal, Tuple
+from typing import Tuple, Literal
 
 from moviepy.editor import ImageClip, AudioFileClip, CompositeVideoClip, TextClip
 
-from ffmpeg_utils import convert_audiofile, detect_silence, remove_silence
-from src.file_utils import fix_filenames, remove_files
+from .ffmpeg_utils import convert_audiofile, detect_silence, remove_silence
+from .file_utils import fix_filenames, remove_files
 
 
-def clean_audiotrack(audio_path: str, duration: int) -> Tuple[list[str], AudioFileClip]:
+# todo make audio_path path type
+def clean_audiotrack(audio_path: str, duration: int = None) -> Tuple[list[str], AudioFileClip]:
     filename = audio_path[:-4]
     output_path = f"{filename}_fixed.mp3"
     wav_path = filename + '.wav'
@@ -25,15 +25,16 @@ def clean_audiotrack(audio_path: str, duration: int) -> Tuple[list[str], AudioFi
 
 
 def add_image_background(video_type: Literal['plain', 'short'], image_path: str, duration: int) -> ImageClip:
-    # Load the static image
     image_clip = ImageClip(image_path).set_duration(duration)
 
-    # Resize the image to 1920x1080
     if video_type == 'plain':
-        # Stretch to fit
-        image_clip = image_clip.resize(newsize=(1920, 1080))
+        # Resize to fit height, keeping aspect ratio
+        image_clip = image_clip.resize(height=1080)
+
+        # If the resized image width is less than 1920, add padding
+        if image_clip.size[0] < 1920:
+            image_clip = image_clip.on_color(size=(1920, 1080), color=(0, 0, 0), pos=('center', 'center'))
     elif video_type == 'short':
-        # Resize keep aspect
         image_clip = image_clip.resize(height=1920)
         image_clip = image_clip.on_color(size=(1080, 1920), color=(0, 0, 0))
     else:
@@ -81,7 +82,7 @@ def create_video_with_image(image_path: str,
     :return: None
     """
     # Use the font path from the environment variable
-    font_path = '../fonts/OpenSans-Bold.ttf'
+    font_path = 'fonts/OpenSans-Bold.ttf'
     try:
         files_for_remove, audio_clip = clean_audiotrack(audio_path, duration)
         if audio_clip.duration > 60:
@@ -96,7 +97,6 @@ def create_video_with_image(image_path: str,
         remove_files(files_for_remove)
 
 
-# todo do not attach to mp3 format in audiofiles
 def create_videos_with_image(source_mp3_folder_path: Path,
                              source_images_folder_path: Path,
                              output_video_folder_path: Path,
@@ -119,22 +119,3 @@ def create_videos_with_image(source_mp3_folder_path: Path,
                                 audio_path=str(mp3_path),
                                 output_path=f'{output_video_folder_path}/{os.path.basename(mp3_path)[:-4]}.mp4',
                                 text=video_caption_text)
-
-
-# separaterd shorts image paths and plain videos paths
-# add ui
-# Clean-up audiotrack only
-if __name__ == '__main__':
-    image_path = '../photo.jpg'
-    audio_path = '../sample_with_pauses.mp3'
-    output_path = '../ouput.mp4'
-    video_caption_text = 'Min bir hikmətli söz'
-
-    start_time = time.time()
-    create_videos_with_image(source_mp3_folder_path=Path('../examples'),
-                             source_images_folder_path=Path(r'E:\ПапаРелигия\assets\photo'),
-                             output_video_folder_path=Path('../out'),
-                             video_caption_text=video_caption_text)
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-    print(f'Execution time: {elapsed_time:.2f} seconds')
