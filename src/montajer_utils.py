@@ -10,15 +10,36 @@ from .ffmpeg_utils import convert_audiofile, detect_silence, remove_silence
 from .file_utils import fix_filenames, remove_files
 
 
-# todo make audio_path path type
-def clean_audiotrack(audio_path: str, duration: int = None) -> Tuple[list[str], AudioFileClip]:
-    filename = audio_path[:-4]
-    output_path = f"{filename}_fixed.mp3"
-    wav_path = filename + '.wav'
+def clean_audiotrack(audio_path: Path):
+    """
+    Removes all silence from audiotrack and deletes all temporary files
+    :param audio_path: path to audiofile
+    """
+    try:
+        files_for_remove, audiotrack = _clean_audiotrack(audio_path)
+        print(f"files for remove: {files_for_remove}")
+        output_path = f"{str(audio_path)[:-4]}_fixed.mp3"
+        audiotrack.write_audiofile(output_path)
+    finally:
+        remove_files([file for file in files_for_remove if not str(file).endswith(".mp3")])
+
+
+def _clean_audiotrack(audio_path: Path, duration: int = None) -> Tuple[list[Path], AudioFileClip]:
+    """
+    Removes all silence from audiotrack.
+    :param audio_path: path to audiofile
+    :return tuple with creaeted filepaths and audioclip
+    """
+    filename = str(audio_path)[:-4]
+    wav_path = Path(filename + '.wav')
     convert_audiofile(audio_path, wav_path)
+
+    output_path = Path(f"{filename}_fixed.mp3")
     remove_silence(wav_path, detect_silence(wav_path, 0.5), 0.5, output_path)
-    result = AudioFileClip(output_path)
+    # todo убрать лишнюю конвертацию в mp3
+    result = AudioFileClip(str(output_path))
     files_for_remove = [output_path, wav_path]
+
     if not duration:
         return files_for_remove, result
     return files_for_remove, result.set_duration(duration)
@@ -44,32 +65,26 @@ def add_image_background(video_type: Literal['plain', 'short'], image_path: str,
 
 
 def add_text_on_background(text: str, duration: int, font_path: str, padding_top: int = 75) -> TextClip:
-    # Create a text clip
     text_clip = TextClip(text, size=(900, 0), fontsize=60, color='white', font=font_path)
 
-    # Set the duration of the text clip to match the image duration
     text_clip = text_clip.set_duration(duration)
 
-    # Position the text at the top of the video
     text_clip = text_clip.set_position(('center', padding_top))
 
     return text_clip
 
 
 def export_video(image_clip: ImageClip, audio_clip: AudioFileClip, text_clip: TextClip, output_path: str):
-    # Set the audio to the image clip
     video_clip = image_clip.set_audio(audio_clip)
 
-    # Composite the text clip on the image clip
     video_with_caption = CompositeVideoClip([video_clip, text_clip])
 
-    # Save the final video with proper codec settings
-    video_with_caption.write_videofile(output_path, codec='libx264', audio_codec='aac', fps=24)
+    video_with_caption.write_videofile(str(output_path), codec='libx264', audio_codec='aac', fps=24)
 
 
 def create_video_with_image(image_path: str,
-                            audio_path: str,
-                            output_path: str,
+                            audio_path: Path,
+                            output_path: Path,
                             text: str,
                             duration: int = None):
     """
@@ -84,7 +99,7 @@ def create_video_with_image(image_path: str,
     # Use the font path from the environment variable
     font_path = 'fonts/OpenSans-Bold.ttf'
     try:
-        files_for_remove, audio_clip = clean_audiotrack(audio_path, duration)
+        files_for_remove, audio_clip = _clean_audiotrack(audio_path, duration)
         if audio_clip.duration > 60:
             video_type = 'plain'
         else:
@@ -97,25 +112,25 @@ def create_video_with_image(image_path: str,
         remove_files(files_for_remove)
 
 
-def create_videos_with_image(source_mp3_folder_path: Path,
+def create_videos_with_image(source_audio_folder_path: Path,
                              source_images_folder_path: Path,
                              output_video_folder_path: Path,
                              video_caption_text: str):
     """
     Creates videos from given audio folder path
-    :param source_mp3_folder_path:
+    :param source_audio_folder_path:
     :param source_images_folder_path:
     :param output_video_folder_path:
     :param video_caption_text:
     :return:
     """
-    fix_filenames(str(source_mp3_folder_path))
-    mp3_paths = glob.glob(os.path.join(source_mp3_folder_path, '*.mp3'))
+    fix_filenames(source_audio_folder_path)
+    audio_paths = glob.glob(os.path.join(source_audio_folder_path, '*.mp3'))
     background_image_paths = glob.glob(os.path.join(source_images_folder_path, '*.jpg'))
 
-    for mp3_path in mp3_paths:
+    for audio_path in audio_paths:
         random_image_path = random.choice(background_image_paths)
-        create_video_with_image(image_path=str(random_image_path),
-                                audio_path=str(mp3_path),
-                                output_path=f'{output_video_folder_path}/{os.path.basename(mp3_path)[:-4]}.mp4',
+        create_video_with_image(image_path=random_image_path,
+                                audio_path=Path(audio_path),
+                                output_path=Path(f'{output_video_folder_path}/{os.path.basename(audio_path)[:-4]}.mp4'),
                                 text=video_caption_text)

@@ -1,7 +1,13 @@
 /.idea
 .venv
+# input and output files
 *.mp3
 *.mp4
 *.jpg
 *.mov
+# folder for local development
 examples
+# pytthon cache files
+__pycache__/
+*.pyc
+*.pyo

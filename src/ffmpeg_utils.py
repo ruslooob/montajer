@@ -1,11 +1,12 @@
 import subprocess
+from pathlib import Path
 
 import numpy as np
 from scipy.io.wavfile import write, read
 from tqdm import tqdm
 
 
-def convert_audiofile(input_path: str, output_path: str):
+def convert_audiofile(input_path: Path, output_path: Path):
     """
     Convert audiofile from one format to another.
     Formats will be specified by extension of both paths.
@@ -13,11 +14,16 @@ def convert_audiofile(input_path: str, output_path: str):
     :param input_path: path to input audiofile (extension included)
     :param output_path: path to output audiofile (extension also included)
     """
-    command = ['ffmpeg', '-hide_banner', '-y', '-i', input_path, output_path]
-    subprocess.run(command, check=True)
+    command = ['ffmpeg', '-hide_banner', '-y', '-i', str(input_path), str(output_path)]
+    try:
+        subprocess.run(command, check=True)
+    except subprocess.CalledProcessError as e:
+        print(e.stdout)
+        print(e.stderr)
+        raise
 
 
-def detect_silence(path, time):
+def detect_silence(path: Path, time):
     """
     This function is a python wrapper to run the ffmpeg command in python and extract the desired output
 
@@ -26,7 +32,7 @@ def detect_silence(path, time):
 
     returns = list of tuples with start and end point of silences
     """
-    command = "ffmpeg -i " + path + " -af silencedetect=n=-35dB:d=" + str(time) + " -f null -"
+    command = "ffmpeg -i " + str(path) + " -af silencedetect=n=-35dB:d=" + str(time) + " -f null -"
     out = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     stdout, stderr = out.communicate()
     s = stdout.decode("utf-8")
@@ -59,7 +65,7 @@ def detect_silence(path, time):
     return list(zip(start, end))
 
 
-def remove_silence(path, sil, keep_sil, out_path):
+def remove_silence(path: Path, sil, keep_sil, out_path: Path):
     """
     Removes silence from the audio.
 
