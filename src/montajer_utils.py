@@ -1,6 +1,7 @@
 import glob
 import os
 import random
+from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
 from typing import Tuple, Literal
 
@@ -8,7 +9,7 @@ from moviepy.editor import ImageClip, AudioFileClip, CompositeVideoClip, TextCli
 
 from .ffmpeg_utils import convert_audiofile, detect_silence, remove_silence, burn_subtitles_into_video
 from .file_utils import fix_filenames, remove_files, find_first_mp3_file
-from .subtitles_utils import write_subtitle_file, SubtitleFormat
+from .subtitles_utils import write_subtitle_file, SubtitleFormat, SubtitlesConfig
 
 
 def clean_audiotrack(audio_path: str, output_path: str):
@@ -103,6 +104,8 @@ def create_video_with_image(image_path: str,
                             audio_path: str,
                             output_path: str,
                             text: str,
+                            subtitles_enabled=False,
+                            subtitles_config: SubtitlesConfig = None,
                             duration: int = None):
     """
     Creates video based on audio and background image
@@ -111,6 +114,8 @@ def create_video_with_image(image_path: str,
     :param output_path: path to output video
     :param text: caption test on top of generated video
     :param duration: max duration of generated video. If None that output video duration will be same as clean-up audiotrack
+    :param subtitles_enabled: option for generating subtitles
+    :param subtitles_config: some parameters for subtitles generation
     :return: None
     """
 
@@ -130,11 +135,11 @@ def create_video_with_image(image_path: str,
 
         # todo сделать так, чтобы субтитры сразу вставлялись в видео
         export_video(image_clip, audio_clip, text_clip, output_path)
-
-        # fixme сделать, чтобы субтитры применялись к измененной аудиодорожке
-        subtitle_path = f'{audio_path[:-4]}.srt'
-        write_subtitle_file(find_first_mp3_file(files_for_remove), subtitle_path, SubtitleFormat.SRT)
-        burn_subtitles_into_video(output_path, subtitle_path, f'{output_path[:-4]}_subtitles.mp4')
+        if subtitles_enabled:
+            subtitle_path = f'{audio_path[:-4]}.srt'
+            write_subtitle_file(find_first_mp3_file(files_for_remove), subtitle_path, SubtitleFormat.SRT,
+                                subtitles_config)
+            burn_subtitles_into_video(output_path, subtitle_path, f'{output_path[:-4]}_subtitles.mp4')
     finally:
         audio_clip.close()
         remove_files(files_for_remove)
@@ -144,6 +149,8 @@ def create_videos_with_image(source_audio_folder_path: str,
                              source_images_folder_path: str,
                              output_video_folder_path: str,
                              video_caption_text: str,
+                             subtitles_enabled=False,
+                             subtitles_config: SubtitlesConfig = None,
                              threads=1):
     fix_filenames(source_audio_folder_path)
     audio_paths = glob.glob(os.path.join(source_audio_folder_path, '*.mp3'))
@@ -158,6 +165,8 @@ def create_videos_with_image(source_audio_folder_path: str,
             audio_path=audio_path,
             output_path=output_path,
             text=video_caption_text,
+            subtitles_enabled=subtitles_enabled,
+            subtitles_config=subtitles_config
         )
 
     if threads == -1:

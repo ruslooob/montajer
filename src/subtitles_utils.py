@@ -6,14 +6,22 @@ from faster_whisper import WhisperModel
 WordTimestamp = namedtuple('WordTimestamp', ['start', 'end', 'word'])
 
 
-def generate_word_timestamps(audio_path: str) -> list[WordTimestamp]:
+class SubtitleFormat(Enum):
+    SRT = 1,
+
+
+SubtitlesConfig = namedtuple('SubtitlesConfig', ['max_line_width', 'max_line_count', 'model', 'language'])
+default_subtitle_config = SubtitlesConfig(25, 2, 'base', None)
+
+
+def generate_word_timestamps(audio_path: str, model, language) -> list[WordTimestamp]:
     """
     Generate subtitles for the given audio file using faster-whisper.
     :param audio_path: Path to the audio file.
     :return: Subtitles as a string.
     """
-    model = WhisperModel("base", device="cuda", compute_type="float16")
-    segments, info = model.transcribe(audio_path, language='az', word_timestamps=True)
+    model = WhisperModel(model, device="cuda", compute_type="float16")
+    segments, info = model.transcribe(audio_path, language=language, word_timestamps=True)
 
     word_timestamps = []
     for segment in segments:
@@ -67,21 +75,21 @@ def write_srt_file(output_path: str, word_timestamps: list[WordTimestamp]):
             f.write(srt_entry)
 
 
-class SubtitleFormat(Enum):
-    SRT = 1,
-
-
-def write_subtitle_file(audio_path: str, output_path: str, subtitle_format: SubtitleFormat):
+def write_subtitle_file(audio_path: str,
+                        output_path: str,
+                        subtitle_format: SubtitleFormat,
+                        subtitles_config: SubtitlesConfig = default_subtitle_config):
     """
     Process an audio file to generate subtitles.
     :param audio_path: Path to the audio file.
     :param output_path: Path to the output subtitle file
     :param subtitle_format: Enum, Output subtitle file format
+    :param subtitles_config
     """
 
-    word_timestamps = generate_word_timestamps(audio_path)
+    word_timestamps = generate_word_timestamps(audio_path, subtitles_config.model, subtitles_config.language)
 
-    subtitles = generate_subtitles(word_timestamps)
+    subtitles = generate_subtitles(word_timestamps, subtitles_config.max_line_width, subtitles_config.max_line_count)
 
     if subtitle_format == SubtitleFormat.SRT:
         write_srt_file(output_path, subtitles)

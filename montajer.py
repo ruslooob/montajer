@@ -4,6 +4,7 @@ import time
 import typer
 
 from src.montajer_utils import create_videos_with_image, clean_audiotrack
+from src.subtitles_utils import SubtitlesConfig
 
 app = typer.Typer()
 
@@ -21,12 +22,24 @@ def create_videos(source_audio_folder_path: str = typer.Option(),
                   source_images_folder_path: str = typer.Option(),
                   output_video_folder_path: str = typer.Option(),
                   video_caption_text: str = typer.Option(),
+                  subtitles_enabled: bool = typer.Option(False),
+                  subtitles_max_line_width: int = typer.Option(),
+                  subtitles_max_line_count: int = typer.Option(),
+                  subtitles_model: str = typer.Option(),
+                  subtitles_language: str = typer.Option(),
                   threads: int = typer.Option(1)):
     start_time = time.time()
     create_videos_with_image(source_audio_folder_path,
                              source_images_folder_path,
                              output_video_folder_path,
                              video_caption_text,
+                             subtitles_enabled,
+                             SubtitlesConfig(
+                                 subtitles_max_line_width,
+                                 subtitles_max_line_count,
+                                 subtitles_model,
+                                 subtitles_language
+                             ) if subtitles_enabled else None,
                              threads)
     print(f"Общее время монтажа: {time.time() - start_time:.2f}")
 
@@ -37,19 +50,23 @@ def montage(config: str = typer.Option()):
     Производит монтаж в соответствии с заданными настройками.
     :param config Путь json-файла с конфигурацией
     """
+
     with open(config, 'r', encoding='utf-8') as file:
         config = json.load(file)
-        arguments = config['arguments']
         task_type = config['task-type']
-        # todo add subtitle settings: max-line-width, max-line-count, model
         if task_type == 'create-videos':
-            create_videos(arguments['source-audio-folder-path'],
-                          arguments['source-images-folder-path'],
-                          arguments['output-video-folder-path'],
-                          arguments['video-caption-text'],
-                          config['threads'])
+            create_videos(source_audio_folder_path=config['source-audio-folder-path'],
+                          source_images_folder_path=config['source-images-folder-path'],
+                          output_video_folder_path=config['output-video-folder-path'],
+                          video_caption_text=config['video-caption-text'],
+                          subtitles_enabled=config['subtitles-enabled'],
+                          subtitles_max_line_width=config['subtitles-max-line-width'],
+                          subtitles_max_line_count=config['subtitles-max-line-count'],
+                          subtitles_model=config['subtitles-model'],
+                          subtitles_language=config['subtitles-language'],
+                          threads=config['threads'])
         elif task_type == 'cleanup-audio':
-            cleanup_audio(arguments['audio-path'])
+            cleanup_audio(config['audio-path'])
         else:
             raise ValueError("Неверный task-type")
 
