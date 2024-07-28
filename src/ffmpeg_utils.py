@@ -102,3 +102,18 @@ def remove_silence(path: Path, sil, keep_sil, out_path: Path):
         ans = ans + ad[int(i[0] * rate):int(i[1] * rate)]
     write(out_path, rate, np.array(ans))
     return non_sil
+
+
+def to_unix_path(path: str) -> str:
+    unix_path = str(path).replace('\\', '/')
+    return unix_path
+
+
+def burn_subtitles_into_video(video_path: str, subtitles_path: str, output_path: str):
+    command = f'ffmpeg -y -i {video_path} -vf \"subtitles=\'{to_unix_path(subtitles_path)}\':force_style=\'Alignment=2,MarginV=50\'" -c:a copy {output_path}'
+
+    try:
+        result = subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        print(result.stdout)
+    except subprocess.CalledProcessError as e:
+        print(f"Error: {e.stderr}")

@@ -42,6 +42,7 @@ def montage(config: Path = typer.Option()):
         config = json.load(file)
         arguments = config['arguments']
         task_type = config['task-type']
+        # todo add subtitle settings: max-line-width, max-line-count, model
         if task_type == 'create-videos':
             create_videos(arguments['source-audio-folder-path'],
                           arguments['source-images-folder-path'],

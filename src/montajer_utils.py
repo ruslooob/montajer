@@ -7,8 +7,9 @@ from typing import Tuple, Literal
 
 from moviepy.editor import ImageClip, AudioFileClip, CompositeVideoClip, TextClip
 
-from .ffmpeg_utils import convert_audiofile, detect_silence, remove_silence
+from .ffmpeg_utils import convert_audiofile, detect_silence, remove_silence, burn_subtitles_into_video
 from .file_utils import fix_filenames, remove_files
+from .subtitles_utils import write_subtitle_file, SubtitleFormat
 
 
 def clean_audiotrack(audio_path: Path, output_path: Path):
@@ -79,10 +80,18 @@ def add_text_on_background(text: str, duration: int, font_path: str, padding_top
     return text_clip
 
 
-def export_video(image_clip: ImageClip, audio_clip: AudioFileClip, text_clip: TextClip, output_path: str):
+def export_video(image_clip: ImageClip,
+                 audio_clip: AudioFileClip,
+                 text_clip: TextClip,
+                 output_path: Path,
+                 duration=None):
     video_clip = image_clip.set_audio(audio_clip)
 
     video_with_caption = CompositeVideoClip([video_clip, text_clip])
+
+    if duration:
+        video_with_caption.set_duration(duration)
+        text_clip.set_duration(duration)
 
     video_with_caption.write_videofile(str(output_path), codec='libx264', audio_codec='aac', fps=24)
 
@@ -111,12 +120,20 @@ def create_video_with_image(image_path: str,
             video_type = 'short'
         image_clip = add_image_background(video_type, image_path, audio_clip.duration)
         text_clip = add_text_on_background(text, audio_clip.duration, font_path)
+
+        # todo сделать так, чтобы субтитры сразы вставлялись в видео
         export_video(image_clip, audio_clip, text_clip, output_path)
+
+        # fixme сделать, чтобы субтитры применялись к измененной аудиодорожке
+        subtitle_path = Path(f'{str(audio_path)[:-4]}.srt')
+        write_subtitle_file(Path(audio_path), subtitle_path, SubtitleFormat.SRT)
+        burn_subtitles_into_video(str(output_path), str(subtitle_path), f'{str(output_path)[:-4]}_subtitles.mp4')
     finally:
         audio_clip.close()
         remove_files(files_for_remove)
 
 
+# todo сделать, чтобы потоки забиралсь из переменных среды, а не из параметров метода
 def create_videos_with_image(source_audio_folder_path: Path,
                              source_images_folder_path: Path,
                              output_video_folder_path: Path,
@@ -134,7 +151,7 @@ def create_videos_with_image(source_audio_folder_path: Path,
             image_path=random_image_path,
             audio_path=Path(audio_path),
             output_path=output_path,
-            text=video_caption_text
+            text=video_caption_text,
         )
 
     if threads == -1:
