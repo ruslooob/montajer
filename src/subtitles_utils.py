@@ -1,20 +1,19 @@
 from collections import namedtuple
 from enum import Enum
-from pathlib import Path
 
 from faster_whisper import WhisperModel
 
 WordTimestamp = namedtuple('WordTimestamp', ['start', 'end', 'word'])
 
 
-def generate_word_timestamps(audio_path: Path) -> list[WordTimestamp]:
+def generate_word_timestamps(audio_path: str) -> list[WordTimestamp]:
     """
     Generate subtitles for the given audio file using faster-whisper.
     :param audio_path: Path to the audio file.
     :return: Subtitles as a string.
     """
     model = WhisperModel("base", device="cuda", compute_type="float16")
-    segments, info = model.transcribe(str(audio_path), language='az', word_timestamps=True)
+    segments, info = model.transcribe(audio_path, language='az', word_timestamps=True)
 
     word_timestamps = []
     for segment in segments:
@@ -52,7 +51,7 @@ def generate_subtitles(word_timestamps: list[WordTimestamp],
     return subtitles
 
 
-def write_srt_file(output_path: Path, word_timestamps: list[WordTimestamp]):
+def write_srt_file(output_path: str, word_timestamps: list[WordTimestamp]):
     def format_time(seconds: float) -> str:
         millis = int((seconds - int(seconds)) * 1000)
         total_seconds = int(seconds)
@@ -62,7 +61,7 @@ def write_srt_file(output_path: Path, word_timestamps: list[WordTimestamp]):
 
         return f"{hours:02}:{minutes:02}:{seconds:02},{millis:03}"
 
-    with open(str(output_path), 'w', encoding='utf-8') as f:
+    with open(output_path, 'w', encoding='utf-8') as f:
         for i, word_timestamp in enumerate(word_timestamps):
             srt_entry = f'{i + 1}\n{format_time(word_timestamp.start)} --> {format_time(word_timestamp.end)}\n{word_timestamp.word}\n\n'
             f.write(srt_entry)
@@ -72,7 +71,7 @@ class SubtitleFormat(Enum):
     SRT = 1,
 
 
-def write_subtitle_file(audio_path: Path, output_path: Path, subtitle_format: SubtitleFormat):
+def write_subtitle_file(audio_path: str, output_path: str, subtitle_format: SubtitleFormat):
     """
     Process an audio file to generate subtitles.
     :param audio_path: Path to the audio file.
@@ -91,4 +90,4 @@ def write_subtitle_file(audio_path: Path, output_path: Path, subtitle_format: Su
 
 
 if __name__ == '__main__':
-    write_subtitle_file(Path('../examples/audio/123.mp3'), Path('../examples/audio/123.srt'), SubtitleFormat.SRT)
+    write_subtitle_file('../examples/audio/123.mp3', '../examples/audio/123.srt', SubtitleFormat.SRT)

@@ -1,12 +1,11 @@
 import subprocess
-from pathlib import Path
 
 import numpy as np
 from scipy.io.wavfile import write, read
 from tqdm import tqdm
 
 
-def convert_audiofile(input_path: Path, output_path: Path):
+def convert_audiofile(input_path: str, output_path: str):
     """
     Convert audiofile from one format to another.
     Formats will be specified by extension of both paths.
@@ -14,7 +13,7 @@ def convert_audiofile(input_path: Path, output_path: Path):
     :param input_path: path to input audiofile (extension included)
     :param output_path: path to output audiofile (extension also included)
     """
-    command = ['ffmpeg', '-hide_banner', '-y', '-i', str(input_path), str(output_path)]
+    command = ['ffmpeg', '-hide_banner', '-y', '-i', input_path, output_path]
     try:
         subprocess.run(command, check=True)
     except subprocess.CalledProcessError as e:
@@ -23,7 +22,7 @@ def convert_audiofile(input_path: Path, output_path: Path):
         raise
 
 
-def detect_silence(path: Path, time):
+def detect_silence(path: str, time: float):
     """
     This function is a python wrapper to run the ffmpeg command in python and extract the desired output
 
@@ -32,7 +31,7 @@ def detect_silence(path: Path, time):
 
     returns = list of tuples with start and end point of silences
     """
-    command = "ffmpeg -i " + str(path) + " -af silencedetect=n=-35dB:d=" + str(time) + " -f null -"
+    command = "ffmpeg -i " + path + " -af silencedetect=n=-35dB:d=" + str(time) + " -f null -"
     out = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     stdout, stderr = out.communicate()
     s = stdout.decode("utf-8")
@@ -66,7 +65,7 @@ def detect_silence(path: Path, time):
 
 
 # todo разобраться, почему зависает на секунд 10 во время многопоточного выполнения
-def remove_silence(path: Path, sil, keep_sil, out_path: Path):
+def remove_silence(path: str, sil, keep_sil, out_path: str):
     """
     Removes silence from the audio.
 
@@ -105,7 +104,7 @@ def remove_silence(path: Path, sil, keep_sil, out_path: Path):
 
 
 def to_unix_path(path: str) -> str:
-    unix_path = str(path).replace('\\', '/')
+    unix_path = path.replace('\\', '/')
     return unix_path
 
 

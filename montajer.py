@@ -1,6 +1,5 @@
 import json
 import time
-from pathlib import Path
 
 import typer
 
@@ -10,7 +9,7 @@ app = typer.Typer()
 
 
 @app.command(name='cleanup-audio')
-def cleanup_audio(audio_path: Path = typer.Option(), output_path: Path = typer.Option(None)):
+def cleanup_audio(audio_path: str = typer.Option(), output_path: str = typer.Option(None)):
     if output_path:
         clean_audiotrack(audio_path, output_path)
     else:
@@ -18,9 +17,9 @@ def cleanup_audio(audio_path: Path = typer.Option(), output_path: Path = typer.O
 
 
 @app.command(name="create-videos")
-def create_videos(source_audio_folder_path: Path = typer.Option(),
-                  source_images_folder_path: Path = typer.Option(),
-                  output_video_folder_path: Path = typer.Option(),
+def create_videos(source_audio_folder_path: str = typer.Option(),
+                  source_images_folder_path: str = typer.Option(),
+                  output_video_folder_path: str = typer.Option(),
                   video_caption_text: str = typer.Option(),
                   threads: int = typer.Option(1)):
     start_time = time.time()
@@ -33,7 +32,7 @@ def create_videos(source_audio_folder_path: Path = typer.Option(),
 
 
 @app.command(name="montage")
-def montage(config: Path = typer.Option()):
+def montage(config: str = typer.Option()):
     """
     Производит монтаж в соответствии с заданными настройками.
     :param config Путь json-файла с конфигурацией
@@ -55,8 +54,10 @@ def montage(config: Path = typer.Option()):
             raise ValueError("Неверный task-type")
 
 
+# TODO
 # Add ui.
 # Хочу, чтобы можно было запускать через консоль и выбирать опции.
 # Обработать только аудио, создать видео, склеивать одно видео с другим
+# команды для отдельного создания субтитров (из видео и из аудио)
 if __name__ == '__main__':
     app()
