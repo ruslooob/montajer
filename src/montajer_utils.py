@@ -1,7 +1,6 @@
 import glob
 import os
 import random
-from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
 from typing import Tuple, Literal
 
@@ -119,6 +118,7 @@ def create_video_with_image(image_path: str,
     :return: None
     """
 
+    # todo разобраться, почему не сохраняются видео в нужную папку с субтитрами
     def determine_video_type(duration_in_seconds: int) -> VideoType:
         return 'plain' if duration_in_seconds > 60 else 'short'
 
@@ -153,8 +153,8 @@ def create_videos_with_image(source_audio_folder_path: str,
                              subtitles_config: SubtitlesConfig = None,
                              threads=1):
     fix_filenames(source_audio_folder_path)
-    audio_paths = glob.glob(os.path.join(source_audio_folder_path, '*.mp3'))
-    print(f"audio paths: {audio_paths}")
+    audio_paths = glob.glob(os.path.join(source_audio_folder_path, '*.mp3')) + \
+                  glob.glob(os.path.join(source_audio_folder_path, '*.m4a'))
     background_image_paths = glob.glob(os.path.join(source_images_folder_path, '*.jpg'))
 
     def create_video_helper(audio_path: str):

@@ -16,7 +16,8 @@ def cleanup_audio(audio_path: str = typer.Option(), output_path: str = typer.Opt
     else:
         clean_audiotrack(audio_path)
 
-
+# todo убрать _fixed
+# сдлать конвртацию из m4a в mp3
 @app.command(name="create-videos")
 def create_videos(source_audio_folder_path: str = typer.Option(),
                   source_images_folder_path: str = typer.Option(),

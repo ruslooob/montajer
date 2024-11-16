@@ -79,6 +79,10 @@ def remove_silence(path: str, sil, keep_sil, out_path: str):
     Non - silent patches and save the new audio in out path
     """
     rate, aud = read(path)
+    if not sil:
+        write(out_path, rate, aud)
+        return None
+
     a = float(keep_sil) / 2
     sil_updated = [(i[0] + a, i[1] - a) for i in sil]
 
@@ -108,6 +112,7 @@ def to_unix_path(path: str) -> str:
     return unix_path
 
 
+# add font
 def burn_subtitles_into_video(video_path: str, subtitles_path: str, output_path: str):
     command = f'ffmpeg -y -i {video_path} -vf \"subtitles=\'{to_unix_path(subtitles_path)}\':force_style=\'Alignment=2,MarginV=50\'" -c:a copy {output_path}'
 
