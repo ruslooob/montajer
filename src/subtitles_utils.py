@@ -3,7 +3,7 @@ from enum import Enum
 
 from faster_whisper import WhisperModel
 
-WordTimestamp = namedtuple('WordTimestamp', ['start', 'end', 'word'])
+SubtitleEntry = namedtuple('WordTimestamp', ['start', 'end', 'word'])
 
 
 class SubtitleFormat(Enum):
@@ -14,7 +14,7 @@ SubtitlesConfig = namedtuple('SubtitlesConfig', ['max_line_width', 'max_line_cou
 default_subtitle_config = SubtitlesConfig(25, 2, 'base', None)
 
 
-def generate_word_timestamps(audio_path: str, model, language) -> list[WordTimestamp]:
+def generate_word_timestamps(audio_path: str, model, language) -> list[SubtitleEntry]:
     """
     Generate subtitles for the given audio file using faster-whisper.
     :param audio_path: Path to the audio file.
@@ -26,15 +26,13 @@ def generate_word_timestamps(audio_path: str, model, language) -> list[WordTimes
     word_timestamps = []
     for segment in segments:
         for word in segment.words:
-            word_timestamps.append(WordTimestamp(word.start, word.end, word.word.strip()))
+            word_timestamps.append(SubtitleEntry(word.start, word.end, word.word.strip()))
     return word_timestamps
 
 
-# todo сделать не WordTimestamps, а SubtitleEntry. Поля будут одинаковыми, но это не будет вводить в заблуждене
-#  неверной терминологией
-def generate_subtitles(word_timestamps: list[WordTimestamp],
+def generate_subtitles(word_timestamps: list[SubtitleEntry],
                        max_line_width=25,
-                       max_line_count=2) -> list[WordTimestamp]:
+                       max_line_count=2) -> list[SubtitleEntry]:
     subtitles = []
     curr_entry = word_timestamps[0]
 
@@ -43,12 +41,12 @@ def generate_subtitles(word_timestamps: list[WordTimestamp],
 
         last_line = curr_entry.word.split('\n')[-1]
         if len(last_line + " " + word_timestamp.word) <= max_line_width:
-            curr_entry = WordTimestamp(curr_entry.start, word_timestamp.end,
+            curr_entry = SubtitleEntry(curr_entry.start, word_timestamp.end,
                                        curr_entry.word + ' ' + word_timestamp.word)
         else:
             line_count = curr_entry.word.count('\n') + 1
             if line_count < max_line_count:
-                curr_entry = WordTimestamp(curr_entry.start, word_timestamp.end,
+                curr_entry = SubtitleEntry(curr_entry.start, word_timestamp.end,
                                            curr_entry.word + "\n" + word_timestamp.word)
             else:
                 subtitles.append(curr_entry)
@@ -59,7 +57,7 @@ def generate_subtitles(word_timestamps: list[WordTimestamp],
     return subtitles
 
 
-def write_srt_file(output_path: str, word_timestamps: list[WordTimestamp]):
+def write_srt_file(output_path: str, word_timestamps: list[SubtitleEntry]):
     def format_time(seconds: float) -> str:
         millis = int((seconds - int(seconds)) * 1000)
         total_seconds = int(seconds)

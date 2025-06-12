@@ -54,7 +54,7 @@ def _clean_audiotrack(audio_path: str, duration: int = None) -> Tuple[list[str],
 VideoType = Literal['plain', 'short']
 
 
-def add_image_background(video_type: VideoType, image_path: str, duration: int) -> ImageClip:
+def add_background_image(video_type: VideoType, image_path: str, duration: int) -> ImageClip:
     image_clip = ImageClip(image_path).set_duration(duration)
 
     if video_type == 'plain':
@@ -130,7 +130,7 @@ def create_video_with_image(image_path: str,
     try:
         files_for_remove, audio_clip = _clean_audiotrack(audio_path, duration)
         video_type = determine_video_type(audio_clip.duration)
-        image_clip = add_image_background(video_type, image_path, audio_clip.duration)
+        image_clip = add_background_image(video_type, image_path, audio_clip.duration)
         text_clip = add_text_on_background(text, audio_clip.duration, font_path)
 
         # todo сделать так, чтобы субтитры сразу вставлялись в видео
@@ -148,7 +148,7 @@ def create_video_with_image(image_path: str,
 def create_videos_with_image(source_audio_folder_path: str,
                              source_images_folder_path: str,
                              output_video_folder_path: str,
-                             video_caption_text: str,
+                             video_caption_text: str, 
                              subtitles_enabled=False,
                              subtitles_config: SubtitlesConfig = None,
                              threads=1):

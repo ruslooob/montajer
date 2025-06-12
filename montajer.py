@@ -1,5 +1,6 @@
 import json
 import time
+from pathlib import Path
 
 import typer
 
@@ -16,8 +17,7 @@ def cleanup_audio(audio_path: str = typer.Option(), output_path: str = typer.Opt
     else:
         clean_audiotrack(audio_path)
 
-# todo убрать _fixed
-# сдлать конвртацию из m4a в mp3
+
 @app.command(name="create-videos")
 def create_videos(source_audio_folder_path: str = typer.Option(),
                   source_images_folder_path: str = typer.Option(),
@@ -45,6 +45,28 @@ def create_videos(source_audio_folder_path: str = typer.Option(),
     print(f"Общее время монтажа: {time.time() - start_time:.2f}")
 
 
+def clean_subtitle_videos(folder_path):
+    """
+    Удаляет все mp4-файлы, не оканчивающиеся на '_subtitles.mp4',
+    и переименовывает файлы, заканчивающиеся на '_subtitles.mp4',
+    удаляя '_subtitles' из имени файла.
+    """
+    folder = Path(folder_path)
+
+    #  Шаг 1. Удаляем все файлы без суффикса '_subtitles'
+    for f in folder.glob("*.mp4"):
+        if not f.name.endswith("_subtitles.mp4"):
+            f.unlink()  # удаление файла
+            print(f"Deleted:  {f.name}")
+
+    # Шаг 2. Переименовываем оставшиеся файлы
+    for f in folder.glob("*_subtitles.mp4"):
+        new_name = f.name.replace("_subtitles.mp4", ".mp4")
+        target = f.with_name(new_name)
+        f.rename(target)
+        print(f"Renamed:  {f.name}  ->  {new_name}")
+
+
 @app.command(name="montage")
 def montage(config: str = typer.Option()):
     """
@@ -70,6 +92,8 @@ def montage(config: str = typer.Option()):
             cleanup_audio(config['audio-path'])
         else:
             raise ValueError("Неверный task-type")
+
+    clean_subtitle_videos(config['output-video-folder-path'])
 
 
 # TODO
